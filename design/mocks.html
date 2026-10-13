@@ -1,0 +1,116 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Shoshin mock</title>
+<style>
+:root{--bg:#e9e6e1;--bar:rgba(245,245,247,.85);--barfg:#1d1d1f;--panel:rgba(246,246,248,.92);--fg:#1d1d1f;--fg2:#6e6e73;--sep:rgba(0,0,0,.1);--row:rgba(0,0,0,.05);--blue:#007AFF;--orange:#FF7A3D;--red:#FF383C;--amber:#D9A93A;--seg:rgba(0,0,0,.12);--pill:#f2f2f4}
+.dark{--bg:#2b2d33;--bar:rgba(30,30,32,.85);--barfg:#f5f5f7;--panel:rgba(36,36,38,.94);--fg:#f5f5f7;--fg2:#98989d;--sep:rgba(255,255,255,.1);--row:rgba(255,255,255,.07);--amber:#E8C060;--seg:rgba(255,255,255,.12);--pill:#1c1c1e}
+*{box-sizing:border-box}body{margin:0;font:13px -apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif;background:var(--bg);color:var(--fg);min-height:100vh}
+.menubar{height:26px;background:var(--bar);backdrop-filter:blur(20px);display:flex;justify-content:flex-end;align-items:center;gap:14px;padding:0 14px;color:var(--barfg);font-size:13px}
+.mbicon{display:flex;align-items:center;gap:5px;padding:2px 7px;border-radius:5px;cursor:pointer}.mbicon.open{background:var(--row)}
+.enso{width:14px;height:14px;border:2px solid currentColor;border-radius:50%;border-right-color:transparent;transform:rotate(-30deg)}
+.mbtime{font-variant-numeric:tabular-nums;font-size:12px}
+.controls{position:fixed;left:12px;bottom:10px;display:flex;gap:6px;font-size:11px;color:var(--fg2)}
+.controls button,.controls select{font:inherit;background:var(--panel);color:var(--fg);border:1px solid var(--sep);border-radius:6px;padding:3px 7px}
+.panel{position:absolute;right:10px;top:32px;width:360px;background:var(--panel);backdrop-filter:blur(30px);border:1px solid var(--sep);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.25);padding:6px;overflow:hidden;transition:height .3s}
+.panel.hidden{display:none}
+.row{display:flex;align-items:center;gap:10px;padding:7px 9px;border-radius:7px;cursor:pointer;overflow:hidden;transition:max-height .32s ease,opacity .25s,padding .32s,margin .32s;max-height:44px}
+.row:hover{background:var(--row)}.row.soon{opacity:.45;cursor:default}.row.soon:hover{background:none}
+.row.gone{max-height:0;opacity:0;padding-top:0;padding-bottom:0}
+.ic{width:24px;height:24px;border-radius:6px;display:grid;place-items:center;color:#fff;font-size:13px;flex:none}
+.t{flex:1}.t b{font-weight:500}.t small{display:block;color:var(--fg2);font-size:11px}
+.chev{color:var(--fg2);font-size:15px;transition:transform .3s}.row.sel .chev{transform:rotate(90deg)}
+.body{overflow:hidden;max-height:0;transition:max-height .35s ease}.body.on{max-height:360px}
+.inner{padding:8px 6px 6px}
+.foot{display:flex;justify-content:space-between;border-top:1px solid var(--sep);margin-top:4px;padding:6px 9px 2px;color:var(--fg2);font-size:11px}
+.foot span{cursor:pointer}
+/* B: icon strip */
+.strip{display:flex;gap:4px;padding:2px 2px 6px;border-bottom:1px solid var(--sep)}
+.strip .ic{width:30px;height:30px;cursor:pointer;opacity:.5;transition:opacity .2s,transform .2s}.strip .ic.sel{opacity:1;transform:scale(1.05);box-shadow:0 0 0 2px var(--panel),0 0 0 3.5px var(--blue)}
+.strip .ic.soon{opacity:.2;cursor:default}.strip .title{margin-left:auto;align-self:center;color:var(--fg2);font-size:11px;padding-right:6px}
+/* C: cards */
+.cards{display:flex;flex-direction:column;gap:6px}
+.card{background:var(--row);border-radius:10px;transition:all .35s ease;overflow:hidden}
+.card .row:hover{background:none}
+.card.tab{order:2}.card.tab .row{padding:3px 9px;max-height:26px}.card.tab .ic{width:16px;height:16px;font-size:9px}.card.tab small{display:none}
+.tabs{display:flex;gap:6px;order:2}.tabs .card{flex:1}
+/* breathing */
+.breath{display:flex;flex-direction:column;align-items:center;gap:6px}
+canvas{width:300px;height:150px}
+.phase{font-size:15px;font-weight:500;letter-spacing:.2px}.phase span{color:var(--fg2);font-variant-numeric:tabular-nums;margin-left:4px}
+.meta{color:var(--fg2);font-size:11px}
+/* focus pill */
+.pill{background:var(--pill);border:1px solid var(--sep);border-radius:12px;padding:12px;display:flex;align-items:center;gap:12px}
+.big{font:300 30px/1 "SF Mono",ui-monospace,Menlo,monospace;letter-spacing:-1px;font-variant-numeric:tabular-nums}
+.mid{flex:1;min-width:0}.segs{display:flex;gap:2px;margin-bottom:6px}.segs i{flex:1;height:9px;border-radius:2px;background:var(--seg)}.segs i.f{background:var(--amber)}
+.sub{color:var(--fg2);font-size:11px;white-space:nowrap}.sub b{color:var(--fg);font-weight:500}
+.btn{font:inherit;font-size:12px;background:var(--row);color:var(--fg);border:1px solid var(--sep);border-radius:8px;padding:6px 10px;cursor:pointer;white-space:nowrap}
+.presets{display:flex;gap:6px;justify-content:center;margin-top:10px}.presets .btn.sel{background:var(--amber);color:#1d1d1f;border-color:transparent}
+.idle{text-align:center;color:var(--fg2);font-size:11px;margin-top:8px}
+</style></head>
+<body>
+<div class="menubar"><span style="opacity:.6">Wi-Fi</span><span style="opacity:.6">Tue 2:51 PM</span><div class="mbicon open" id="mb"><div class="enso"></div><span class="mbtime" id="mbt"></span></div></div>
+<div class="panel" id="panel"></div>
+<div class="controls"><button id="dark">Light / Dark</button><select id="style"><option>Box trace</option><option>Pulse</option><option>Ripples</option><option>Wave</option></select><button id="reset">Reset to list</button></div>
+<script>
+const VARIANT='A';
+const TOOLS=[
+ {id:'breath',title:'Box Breathing',sub:'4 in · 4 hold · 4 out · 4 hold',icon:'◻',c:'#5AC8B8'},
+ {id:'focus',title:'Focus Block',sub:'Timed deep work',icon:'◔',c:'#E0A030'},
+ {id:'s1',title:'Daily Intention',sub:'Coming soon',icon:'✎',c:'#8E8E93',soon:1},
+ {id:'s2',title:'Gratitude Note',sub:'Coming soon',icon:'♡',c:'#8E8E93',soon:1}];
+let sel=null,style='Box trace',focusEnd=null,focusMin=25;
+const $=s=>document.querySelector(s),P=$('#panel');
+// seed focus to match screenshot: 18:42 left of 25
+focusEnd=Date.now()+(18*60+42)*1000;
+const fmt=s=>{s=Math.max(0,Math.ceil(s));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')};
+const ends=()=>new Date(focusEnd).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}).toLowerCase();
+function toolBody(t){
+ if(t.id==='breath')return `<div class="breath"><canvas id="cv" width="600" height="300"></canvas><div class="phase" id="ph"></div><div class="meta" id="cy"></div></div>`;
+ if(t.id==='focus')return `<div id="fb"></div>`;
+ return '';}
+function focusHTML(){
+ if(!focusEnd)return `<div class="pill" style="justify-content:space-between"><div class="big" style="opacity:.4">${fmt(focusMin*60)}</div><div class="sub"><b>focus block</b> · ${focusMin} min</div><button class="btn" onclick="startF()">start focus</button></div>
+  <div class="presets">${[15,25,50,90].map(m=>`<button class="btn ${m==focusMin?'sel':''}" onclick="focusMin=${m};renderF()">${m}m</button>`).join('')}</div>`;
+ const left=(focusEnd-Date.now())/1000,tot=focusMin*60,n=24,f=Math.round(n*(1-left/tot));
+ return `<div class="pill"><div class="big">${fmt(left)}</div><div class="mid"><div class="segs">${Array.from({length:n},(_,i)=>`<i class="${i<f?'f':''}"></i>`).join('')}</div><div class="sub"><b>focus block</b> · ${focusMin} min · ends ${ends()}</div></div><button class="btn" onclick="endF()">end focus</button></div>`;}
+function renderF(){const e=$('#fb');if(e)e.innerHTML=focusHTML();$('#mbt').textContent=focusEnd?fmt((focusEnd-Date.now())/1000):'';}
+function startF(){focusEnd=Date.now()+focusMin*60000;renderF()}
+function endF(){focusEnd=null;renderF()}
+const rowHTML=(t,extra='')=>`<div class="row ${t.soon?'soon':''} ${extra}" data-id="${t.id}"><div class="ic" style="background:${t.c}">${t.icon}</div><div class="t"><b>${t.title}</b><small>${t.sub}</small></div>${t.soon?'':'<span class="chev">›</span>'}</div>`;
+const foot=()=>`<div class="foot"><span onclick="sel=null;render()">${sel?'‹ All tools':'Shoshin'}</span><span>Quit</span></div>`;
+function render(){
+ if(VARIANT==='A'){
+  P.innerHTML=TOOLS.map(t=>rowHTML(t,sel?(sel===t.id?'sel':'gone'):'')+`<div class="body ${sel===t.id?'on':''}"><div class="inner">${sel===t.id?toolBody(t):''}</div></div>`).join('')+foot();
+ }else if(VARIANT==='B'){
+  if(!sel)P.innerHTML=TOOLS.map(t=>rowHTML(t)).join('')+foot();
+  else{const t=TOOLS.find(x=>x.id===sel);
+   P.innerHTML=`<div class="strip">${TOOLS.map(x=>`<div class="ic ${x.id===sel?'sel':''} ${x.soon?'soon':''}" data-id="${x.id}" title="${x.title}" style="background:${x.c}">${x.icon}</div>`).join('')}<span class="title">${t.title}</span></div><div class="inner">${toolBody(t)}</div>`+foot();}
+ }else{
+  if(!sel)P.innerHTML=`<div class="cards">${TOOLS.map(t=>`<div class="card">${rowHTML(t)}</div>`).join('')}</div>`+foot();
+  else{const t=TOOLS.find(x=>x.id===sel);
+   P.innerHTML=`<div class="cards"><div class="card">${rowHTML(t,'sel')}<div class="inner">${toolBody(t)}</div></div><div class="tabs">${TOOLS.filter(x=>x.id!==sel).map(x=>`<div class="card tab">${rowHTML(x)}</div>`).join('')}</div></div>`+foot();}
+ }
+ P.querySelectorAll('[data-id]').forEach(el=>el.onclick=()=>{const t=TOOLS.find(x=>x.id===el.dataset.id);if(t.soon)return;sel=(sel===t.id&&VARIANT==='A')?null:t.id;render()});
+ renderF();}
+// breathing
+const PH=['Breathe in','Hold','Breathe out','Hold'],T0=performance.now();
+function draw(now){
+ const cv=$('#cv');if(cv){const x=cv.getContext('2d'),W=600,H=300,t=(now-T0)/1000,cyc=t%16,pi=Math.floor(cyc/4),pt=(cyc%4)/4;
+  const ease=p=>.5-.5*Math.cos(Math.PI*p);
+  const lvl=pi===0?ease(pt):pi===1?1:pi===2?1-ease(pt):0; // lung fullness 0..1
+  const col=getComputedStyle(document.body).getPropertyValue('--fg').trim(),acc='#5AC8B8';
+  x.clearRect(0,0,W,H);x.lineCap='round';
+  if(style==='Box trace'){const s=200,ox=(W-s)/2,oy=(H-s)/2;x.strokeStyle=col;x.globalAlpha=.15;x.lineWidth=6;x.strokeRect(ox,oy,s,s);x.globalAlpha=1;
+   const pts=[[ox,oy+s],[ox,oy],[ox+s,oy],[ox+s,oy+s],[ox,oy+s]],a=pts[pi],b=pts[pi+1],px=a[0]+(b[0]-a[0])*pt,py=a[1]+(b[1]-a[1])*pt;
+   x.strokeStyle=acc;x.lineWidth=6;x.beginPath();x.moveTo(...pts[0]);for(let i=1;i<=pi;i++)x.lineTo(...pts[i]);x.lineTo(px,py);x.stroke();
+   x.fillStyle=acc;x.beginPath();x.arc(px,py,14,0,7);x.fill();
+   x.globalAlpha=.12+.25*lvl;x.fillRect(ox+10,oy+10+(s-20)*(1-lvl),s-20,(s-20)*lvl);x.globalAlpha=1;}
+  else if(style==='Pulse'){const r=40+90*lvl;x.fillStyle=acc;x.globalAlpha=.18;x.beginPath();x.arc(W/2,H/2,r+18,0,7);x.fill();x.globalAlpha=.85;x.beginPath();x.arc(W/2,H/2,r,0,7);x.fill();x.globalAlpha=1;}
+  else if(style==='Ripples'){x.strokeStyle=acc;x.lineWidth=4;for(let i=0;i<4;i++){const r=20+lvl*110*(1-i*.2);x.globalAlpha=.9-i*.2;x.beginPath();x.arc(W/2,H/2,Math.max(4,r),0,7);x.stroke();}x.globalAlpha=1;}
+  else{x.strokeStyle=acc;x.lineWidth=6;x.beginPath();for(let X=20;X<=W-20;X+=4){const y=H/2-(lvl-.5)*180*Math.sin(Math.PI*(X-20)/(W-40))+8*Math.sin(X/30+t*2);X===20?x.moveTo(X,y):x.lineTo(X,y);}x.stroke();}
+  $('#ph').innerHTML=`${PH[pi]}<span>${4-Math.floor(cyc%4)}</span>`;$('#cy').textContent=`Cycle ${Math.floor(t/16)+1} · box breathing 4·4·4·4`;}
+ requestAnimationFrame(draw);}
+requestAnimationFrame(draw);setInterval(renderF,1000);
+$('#dark').onclick=()=>document.body.classList.toggle('dark');$('#style').onchange=e=>style=e.target.value;
+$('#reset').onclick=()=>{sel=null;render()};$('#mb').onclick=()=>P.classList.toggle('hidden');
+document.body.classList.add('dark');render();
+</script></body></html>

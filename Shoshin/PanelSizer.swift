@@ -1,0 +1,188 @@
+import AppKit
+import SwiftUI
+
+
+/// Reports the measured size of the popover content.
+struct PanelSizeKey: PreferenceKey {
+    static var defaultValue: CGSize = .zero
+    static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
+        let next = nextValue()
+        if next != .zero { value = next }
+    }
+}
+
+/// An `NSView` that reports the moment it is attached to a window.
+///
+/// `updateNSView` is not a reliable hook for this: it runs only when SwiftUI
+/// re-renders, and on first appearance the view has no window yet, so a frame
+/// applied there is silently dropped and never retried.
+final class PanelAnchorView: NSView {
+    var onAttach: ((NSWindow) -> Void)?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if let window {
+            onAttach?(window)
+        } else {
+        }
+    }
+}
+
+/// Pins the `MenuBarExtra(.window)` panel to the right of the screen and keeps
+/// it sized to its content.
+///
+/// Two AppKit behaviours have to be worked around.
+///
+/// First, the panel grows to fit its content but never shrinks back, which
+/// strands a full-size empty window when the preview closes.
+///
+/// Second, and less obvious: `MenuBarExtraWindow` keeps itself anchored to the
+/// status item by reverting the origin *inside* `setFrame`. The size is
+/// honoured and the move is silently discarded, so reading the frame back
+/// immediately shows the old x. Measured on a real panel: asking for x=1072
+/// landed at x=848, and asking for x=768 landed at x=376.
+///
+/// The revert is scoped to that call, so `setFrameOrigin` immediately after it
+/// sticks. Both are applied with screen updates suppressed and flushed once, so
+/// the anchored intermediate position is never painted; correcting it on a
+/// later runloop pass instead makes the panel visibly flick from centre to
+/// right.
+///
+/// Do not animate the resize. `animator().setFrame` animates the reverted
+/// origin too, sliding the panel across the screen before the correction lands.
+struct PanelSizer: NSViewRepresentable {
+    let size: CGSize
+
+    /// When true the panel is kept on screen after it loses key status, so
+    /// clicking another app no longer folds it away.
+    let isPinned: Bool
+
+    /// Gap between the panel's trailing edge and the right of the screen.
+    /// Zero: the panel sits flush against the edge.
+    fileprivate static let screenMargin: CGFloat = 0
+
+    final class Coordinator {
+        var size: CGSize = .zero
+        var isPinned = false
+        private var tokens: [NSObjectProtocol] = []
+        private weak var window: NSWindow?
+        private var isApplying = false
+
+        func attach(to window: NSWindow) {
+            guard self.window !== window else {
+                align()
+                return
+            }
+            tokens.forEach(NotificationCenter.default.removeObserver)
+            tokens.removeAll()
+            self.window = window
+
+            let center = NotificationCenter.default
+            for name in [NSWindow.didMoveNotification, NSWindow.didResizeNotification] {
+                tokens.append(center.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.align() }
+                })
+            }
+            tokens.append(center.addObserver(forName: NSWindow.didResignKeyNotification, object: window, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.keepVisibleIfPinned() }
+            })
+            align()
+        }
+
+        func align() {
+            // Our own setFrame triggers didMove/didResize; ignore the echo.
+            guard !isApplying, let window, size.width > 0, size.height > 0 else { return }
+            let current = window.frame
+            let screen = window.screen ?? NSScreen.main
+            let rightEdge = screen.map { $0.visibleFrame.maxX - PanelSizer.screenMargin } ?? current.maxX
+            let target = NSRect(
+                x: rightEdge - size.width,
+                y: current.maxY - size.height,
+                width: size.width,
+                height: size.height
+            )
+            guard abs(current.origin.x - target.origin.x) > 0.5
+                    || abs(current.origin.y - target.origin.y) > 0.5
+                    || abs(current.width - target.width) > 0.5
+                    || abs(current.height - target.height) > 0.5
+            else { return }
+
+            isApplying = true
+            defer {
+                isApplying = false
+            }
+
+            // Any frame change makes AppKit re-anchor the panel to the status
+            // item, reverting the origin inside setFrame. Correcting it on a
+            // later runloop pass means the anchored position gets painted
+            // first, which is the flicker from centre to right. So suppress
+            // drawing, apply size and corrected origin together, then flush.
+            //
+            // The resize is deliberately not animated: animating setFrame
+            // animates the reverted origin too, sliding the panel across the
+            // screen before the correction lands.
+            window.disableScreenUpdatesUntilFlush()
+            window.setFrame(target, display: false)
+            window.setFrameOrigin(target.origin)
+            window.displayIfNeeded()
+        }
+
+        /// Re-shows the panel after it resigns key.
+        ///
+        /// `MenuBarExtra(.window)` closes its panel by ordering it out when the
+        /// window stops being key; there is no public switch for that. The
+        /// order of our observer against AppKit's own handler is not
+        /// guaranteed, so the re-show runs twice: once synchronously (in case
+        /// the order-out already happened) and once on the next runloop pass
+        /// (in case it has not).
+        func keepVisibleIfPinned() {
+            guard isPinned else { return }
+            orderFront()
+            DispatchQueue.main.async { [weak self] in
+                MainActor.assumeIsolated { self?.orderFront() }
+            }
+        }
+
+        private func orderFront() {
+            guard isPinned, let window, !window.isVisible else { return }
+            window.orderFrontRegardless()
+            align()
+        }
+
+        deinit {
+            tokens.forEach(NotificationCenter.default.removeObserver)
+        }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    func makeNSView(context: Context) -> PanelAnchorView {
+        let view = PanelAnchorView(frame: .zero)
+        view.onAttach = { window in
+            window.isMovable = false
+            window.isMovableByWindowBackground = false
+            // The app is an accessory (LSUIElement), so it deactivates as soon
+            // as another app is clicked. Left at the default this would hide
+            // the panel before the pin observer ever runs.
+            window.hidesOnDeactivate = false
+            context.coordinator.attach(to: window)
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: PanelAnchorView, context: Context) {
+        context.coordinator.size = size
+        context.coordinator.isPinned = isPinned
+        if let window = nsView.window {
+            context.coordinator.attach(to: window)
+            context.coordinator.align()
+        }
+    }
+}
+
+// MARK: - Panel scale
+
+/// The three panel sizes, and every dimension that follows from the choice.
+///
+/// One enum owns all of it deliberately: the row and the preview have to scale
+/// together, and spreading the numbers across the views is how they drift apart.
