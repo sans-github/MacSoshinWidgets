@@ -91,6 +91,7 @@ final class FocusTimer {
     }
 }
 
+@MainActor
 struct FocusView: View {
     let timer: FocusTimer
     private let segments = 24
